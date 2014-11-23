@@ -6,7 +6,6 @@ var validator = require('validator');
 
 program
   .version('0.0.1')
-  .option('-v, --verbose', 'Verbose output')
   .option('-q, --quiet', 'Do not show any output')
   .parse(process.argv);
 
@@ -19,7 +18,6 @@ var debug = require('debug');
 var debugFiles = debug('files')
 var debugParser = debug('parser')
 
-
 var inputArg = program.args[0];
 var inputs = [];
 if(fs.lstatSync(inputArg).isFile()) {
@@ -29,7 +27,7 @@ if(fs.lstatSync(inputArg).isFile()) {
     // not supported yet
 }
 
-var events = [
+var eventTypes = [
     {
         type: "kill",
         regex: "^((?:[\\d]{2}:?){3})\\ -\\ ([^\\s]+)?\\s(?:<img=([\\w]+)>)\\s([^\\s]+)",
@@ -59,12 +57,14 @@ var lineNumber = 0; // for debugging messages
 
 var unparsedLines = []; // lines that could not be parsed
 
+var parsedEvents = []; // for storing each parsed event
+
 /**
  * Iterate over each line in the log file
  */
 _.each(inputs, function(line){
     
-    line = validator.trim(line);
+    line = validator.trim(line); // remove whitespace from start and end
     if(!line.length) return; // ignore empty lines
     debugParser('processing: ' + line);
     lineNumber++;
@@ -74,9 +74,9 @@ _.each(inputs, function(line){
     /**
      * See if the line matches any one of the known event types. When a match is
      * found, quit trying the remaining ones. Matches are tried in the order they
-     * are in the `events` array.
+     * are in the `eventTypes` array.
      */
-    _.each(events, function(eventType){
+    _.each(eventTypes, function(eventType){
         if(!done) {
             var re = new RegExp(eventType.regex);
             var matches = re.exec(line);
@@ -89,6 +89,7 @@ _.each(inputs, function(line){
                 });
                 event.properties = properties;
                 debugParser(event);
+                parsedEvents.push(event);
                 done = true;
             }
         } else {
@@ -117,4 +118,14 @@ file.on('error', function(err) { /* error handling */ });
 unparsedLines.forEach(function(line) {
     file.write(line + '\n');
 });
+file.end();
+
+/**
+ * Write parsed events to a file.
+ */
+var parsedEventsFile = 'events.json';
+var str = JSON.stringify(parsedEvents, null, 4);
+var file = fs.createWriteStream(parsedEventsFile);
+file.on('error', function(err) { /* error handling */ });
+file.write(str);
 file.end();
