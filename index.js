@@ -11,7 +11,7 @@ program
   .parse(process.argv);
 
 // debug and logging
-if(!program.silent) {
+if(!program.quiet) {
     process.env.DEBUG='*';
 }
 
@@ -57,7 +57,7 @@ var events = [
 
 var lineNumber = 0; // for debugging messages
 
-var unparsedLines = 0; // lines that could not be parsed
+var unparsedLines = []; // lines that could not be parsed
 
 /**
  * Iterate over each line in the log file
@@ -97,13 +97,24 @@ _.each(inputs, function(line){
     });
 
     /**
-     * Line did not match any of the regular expressions, and therefore could not
-     * be processed. These lines are written to a file.
+     * Line did not match any of the regular expressions, and therefore could
+     * not be processed. Store all unprocessed lines in an array to be flushed
+     * to a file later.
      */
     if(!done) {
         debugParser('not processed.');
-        unparsedLines++;
+        unparsedLines.push(line);
     }
 });
 
-debugParser(unparsedLines);
+/**
+ * Write unprocessed lines to a file.
+ */
+var unparsedLinesFile = 'unparsed.txt';
+debugFiles('writing ' + unparsedLines.length + ' lines to ' + unparsedLinesFile);
+var file = fs.createWriteStream(unparsedLinesFile);
+file.on('error', function(err) { /* error handling */ });
+unparsedLines.forEach(function(line) {
+    file.write(line + '\n');
+});
+file.end();
