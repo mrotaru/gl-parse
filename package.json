@@ -1,0 +1,15 @@
+{
+  "name": "gl-parse",
+  "version": "0.0.1",
+  "description": "Parse game log",
+  "author": "mrotaru",
+  "dependencies": {
+    "commander": "^2.5.0",
+    "debug": "^2.1.0",
+    "lodash": "^2.4.1"
+  },
+  "devDependencies": {
+    "mocha": "^1.21.4",
+    "chai": "^1.9.1"
+  }
+}
