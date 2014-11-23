@@ -34,11 +34,19 @@ var events = [
             "killed": "2"
         }
     },{
-        type: "chat",
-        regex: ""
-    },{
         type: "join",
-        regex: ""
+        regex: "^((?:[\\d]{2}:?){3})\\ -\\ ([^\\s]+)\\ has\\ joined\\ the\\ game\\ with\\ ID:\\ ([\\d]+)",
+        properties: {
+            "playerName": "0",
+            "id"  : "1"
+        }
+    },{
+        type: "chat",
+        regex: "^((?:[\\d]{2}:?){3})\\ -\\ (?:\\*DEAD\\*\\ )?\\[([^\\s]+)\\]\\ (.*)$",
+        properties: {
+            "playerName": "0",
+            "message"  : "1"
+        }
     }
 ];
 
@@ -50,6 +58,7 @@ var lineNumber = 0; // for debugging messages
 _.each(inputs, function(line){
     
     line = validator.trim(line);
+    if(!line.length) return; // ignore empty lines
     debugParser('processing: ' + line);
     lineNumber++;
 
@@ -65,13 +74,14 @@ _.each(inputs, function(line){
             var re = new RegExp(eventType.regex);
             var matches = re.exec(line);
             if(matches){
-                debugParser('line: ' + lineNumber + ' matched "' + eventType.type + '" event.');
                 var event = {};
                 event.type = eventType.type;
+                event.timeStamp = matches[1];
                 var properties = _.mapValues(eventType.properties, function(index){
                     return matches[parseInt(index)+2];
                 });
-                console.log(properties);
+                event.properties = properties;
+                debugParser(event);
                 done = true;
             }
         }
