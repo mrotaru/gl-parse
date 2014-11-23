@@ -4,16 +4,21 @@ var path = require('path');
 var _ = require('lodash');
 var validator = require('validator');
 
+program
+  .version('0.0.1')
+  .option('-v, --verbose', 'Verbose output')
+  .option('-q, --quiet', 'Do not show any output')
+  .parse(process.argv);
+
 // debug and logging
-process.env.DEBUG='*';
+if(!program.silent) {
+    process.env.DEBUG='*';
+}
+
 var debug = require('debug');
 var debugFiles = debug('files')
 var debugParser = debug('parser')
 
-program
-  .version('0.0.1')
-  .option('-v, --verbose', 'Verbose output')
-  .parse(process.argv);
 
 var inputArg = program.args[0];
 var inputs = [];
@@ -52,6 +57,8 @@ var events = [
 
 var lineNumber = 0; // for debugging messages
 
+var unparsedLines = 0; // lines that could not be parsed
+
 /**
  * Iterate over each line in the log file
  */
@@ -84,6 +91,19 @@ _.each(inputs, function(line){
                 debugParser(event);
                 done = true;
             }
+        } else {
+            return;
         }
     });
+
+    /**
+     * Line did not match any of the regular expressions, and therefore could not
+     * be processed. These lines are written to a file.
+     */
+    if(!done) {
+        debugParser('not processed.');
+        unparsedLines++;
+    }
 });
+
+debugParser(unparsedLines);
