@@ -8,7 +8,8 @@ program
   .version('0.0.1')
   .option('-q, --quiet', 'Do not show any output')
   .option('-s, --save-unparsed', 'Store unparsed lines in unparsed.json')
-  .option('-i, --input-format [value]', 'JSON file describing log format', 'mnb')
+  .option('-v, --verbose', 'Show each parsed line on command line')
+  .option('-i, --input-format [value]', 'JavaScript file describing log format', 'mnb')
   .option('-o, --out [value]', 'Which js to load for processing parsed events', 'json')
   .option('-f, --out-file-name [value]', 'File name which will store processed events, without extension', 'events')
   .option('-t, --types <list>', 'Which types to skip when processing.', list)
@@ -78,7 +79,7 @@ _.each(inputs, function(line){
     
     line = validator.trim(line); // remove whitespace from start and end
     if(!line.length) return; // ignore empty lines
-    debugParser('processing: ' + line);
+    if(program.verbose) { debugParser('processing: ' + line); }
     lineNumber++;
 
     var done = false; // set to 'true' when a match is found
@@ -100,7 +101,7 @@ _.each(inputs, function(line){
                  * If --types are specified, then ignore those.
                  */
                 if(program.types && _.contains(program.types, event.type)){
-                    debugParserWarn('skipping because with type "' + event.type + '" are filtered out.');
+                    debugParserWarn('skipping (filtered): ' + line );
                     done = true;
                     return false;
                 } 
@@ -108,7 +109,7 @@ _.each(inputs, function(line){
                     return matches[index];
                 });
                 event.properties = properties;
-                debugParser(event);
+                if(program.verbose) { debugParser(event); }
                 parsedEvents.push(event);
                 done = true;
             }
