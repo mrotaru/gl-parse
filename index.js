@@ -145,7 +145,7 @@ if(fs.lstatSync(outJs)){
     outFunction = require(outJs);
     try {
         debugParser('passing ' + parsedEvents.length + ' event to ' + outJs);
-        outFunction(parsedEvents, debugOut, program.outFileName);
+        outFunction(parsedEvents, debugOut, program);
     } catch(e) {
         console.log('Error: ', e);
     }
