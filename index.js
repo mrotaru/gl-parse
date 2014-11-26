@@ -11,7 +11,15 @@ program
   .option('-i, --input-format [value]', 'JSON file describing log format', 'mnb')
   .option('-o, --out [value]', 'Which js to load for processing parsed events', 'json')
   .option('-f, --out-file-name [value]', 'File name which will store processed events, without extension', 'events')
+  .option('-t, --types <list>', 'Which types to skip when processing.', list)
   .parse(process.argv);
+
+/*
+ * Split at comma
+ */
+function list(val) {
+  return val.split(',');
+}
 
 /*
  * Load config.json if exists
@@ -29,6 +37,7 @@ if(!program.quiet) {
 }
 var debug = require('debug');
 var debugParser = debug('parser')
+var debugParserWarn = debug('parser:warn')
 var debugOut = debug('out')
 var debugConfig = debug('config')
 
@@ -86,6 +95,15 @@ _.each(inputs, function(line){
             if(matches){
                 var event = {};
                 event.type = eventType.type;
+
+                /**
+                 * If --types are specified, then ignore those.
+                 */
+                if(program.types && _.contains(program.types, event.type)){
+                    debugParserWarn('skipping because with type "' + event.type + '" are filtered out.');
+                    done = true;
+                    return false;
+                } 
                 var properties = _.mapValues(eventType.properties, function(index){
                     return matches[index];
                 });
