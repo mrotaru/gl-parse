@@ -7,51 +7,54 @@ var validator = require('validator');
 program
   .version('0.0.1')
   .option('-q, --quiet', 'Do not show any output')
+  .option('-s, --save-unparsed', 'Store unparsed lines in unparsed.json')
+  .option('-i, --input-format [value]', 'JSON file describing log format', 'mnb')
+  .option('-o, --out [value]', 'Which js to load for processing parsed events', 'json')
+  .option('-f, --out-file-name [value]', 'File name which will store processed events, without extension', 'events')
   .parse(process.argv);
 
-// debug and logging
+/*
+ * Load config.json if exists
+ */
+var config = null;
+if(fs.lstatSync('./config.json').isFile()){
+    config = require('./config.json');
+}
+
+/*
+ * Setup debugging and logging
+ */
 if(!program.quiet) {
     process.env.DEBUG='*';
 }
-
 var debug = require('debug');
-var debugFiles = debug('files')
 var debugParser = debug('parser')
+var debugOut = debug('out')
+var debugConfig = debug('config')
 
+/*
+ * Load input format - a json file with regexes which describe the log format
+ */
+var eventTypes = null;
+if(fs.lstatSync(program.inputFormat)){
+    debugConfig('loading log format description from: ' + program.inputFormat);
+    eventTypes = require('./' + program.inputFormat);
+} else {
+    debugConfig('No input. Exiting.');
+    process.exit();
+}
+
+/*
+ * From command line options, see which log file to process
+ */
 var inputArg = program.args[0];
 var inputs = [];
 if(fs.lstatSync(inputArg).isFile()) {
-    debugFiles('loading: ' + inputArg);
+    debugParser('loading log file: ' + inputArg);
     inputs = fs.readFileSync(inputArg).toString().split("\n");
 } else if(fs.lstatSync(inputArg).isDirectory()){
     // not supported yet
 }
-
-var eventTypes = [
-    {
-        type: "kill",
-        regex: "^((?:[\\d]{2}:?){3})\\ -\\ ([^\\s]+)?\\s(?:<img=([\\w]+)>)\\s([^\\s]+)",
-        properties: {
-            "killer": "0",
-            "icon"  : "1",
-            "killed": "2"
-        }
-    },{
-        type: "join",
-        regex: "^((?:[\\d]{2}:?){3})\\ -\\ ([^\\s]+)\\ has\\ joined\\ the\\ game\\ with\\ ID:\\ ([\\d]+)",
-        properties: {
-            "playerName": "0",
-            "id"  : "1"
-        }
-    },{
-        type: "chat",
-        regex: "^((?:[\\d]{2}:?){3})\\ -\\ (?:\\*DEAD\\*\\ )?\\[([^\\s]+)\\]\\ (.*)$",
-        properties: {
-            "playerName": "0",
-            "message"  : "1"
-        }
-    }
-];
 
 var lineNumber = 0; // for debugging messages
 
@@ -83,9 +86,8 @@ _.each(inputs, function(line){
             if(matches){
                 var event = {};
                 event.type = eventType.type;
-                event.timeStamp = matches[1];
                 var properties = _.mapValues(eventType.properties, function(index){
-                    return matches[parseInt(index)+2];
+                    return matches[index];
                 });
                 event.properties = properties;
                 debugParser(event);
@@ -109,23 +111,26 @@ _.each(inputs, function(line){
 });
 
 /**
- * Write unprocessed lines to a file.
+ * If output is specified, pass extracted events to output function.
  */
-var unparsedLinesFile = 'unparsed.txt';
-debugFiles('writing ' + unparsedLines.length + ' lines to ' + unparsedLinesFile);
-var file = fs.createWriteStream(unparsedLinesFile);
-file.on('error', function(err) { /* error handling */ });
-unparsedLines.forEach(function(line) {
-    file.write(line + '\n');
-});
-file.end();
+var outJs = './out/' + program.out + '.js';
+if(fs.lstatSync(outJs)){
+    outFunction = require(outJs);
+    try {
+        outFunction(parsedEvents, debugOut, program.outFileName);
+    } catch(e) {
+        console.log('Error: ', e);
+    }
+} else {
+    debugConfig('No input. Exiting.');
+    process.exit();
+}
 
 /**
- * Write parsed events to a file.
+ * Write unparsed lines to file, if --save-unparsed
  */
-var parsedEventsFile = 'events.json';
-var str = JSON.stringify(parsedEvents, null, 4);
-var file = fs.createWriteStream(parsedEventsFile);
-file.on('error', function(err) { /* error handling */ });
-file.write(str);
-file.end();
+if(program.saveUnparsed) {
+    var unparsedLinesFile = 'unparsed.txt';
+    debugConfig('Writing ' + unparsedLines.length + ' lines to ' + unparsedLinesFile);
+    fs.writeFileSync(unparsedLinesFile);
+}
