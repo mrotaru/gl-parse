@@ -66,10 +66,10 @@ if(fs.lstatSync(inputArg).isFile()) {
     // not supported yet
 }
 
-var lineNumber = 0; // for debugging messages
-
-var unparsedLines = []; // lines that could not be parsed
-
+var state = {};
+state.lineNumber = 0; // for debugging messages
+state.unparsedLines = []; // lines that could not be parsed
+state.skippedLines = []; // filtered with --type
 var parsedEvents = []; // for storing each parsed event
 
 /**
@@ -80,7 +80,7 @@ _.each(inputs, function(line){
     line = validator.trim(line); // remove whitespace from start and end
     if(!line.length) return; // ignore empty lines
     if(program.verbose) { debugParser('processing: ' + line); }
-    lineNumber++;
+    state.lineNumber++;
 
     var done = false; // set to 'true' when a match is found
 
@@ -102,6 +102,7 @@ _.each(inputs, function(line){
                  */
                 if(program.types && _.contains(program.types, event.type)){
                     debugParserWarn('skipping (filtered): ' + line );
+                    state.skippedLines.push(line);
                     done = true;
                     return false;
                 } 
@@ -125,9 +126,16 @@ _.each(inputs, function(line){
      */
     if(!done) {
         debugParser('not processed.');
-        unparsedLines.push(line);
+        state.unparsedLines.push(line);
     }
 });
+
+/**
+ * Show some stats - processed lines, skipped etc
+ */
+debugParser('lines in ' + inputArg + ' - excluding blanks: ' + inputs.length);
+debugParser('unparsed: ' + state.unparsedLines.length);
+debugParser('skipped: ' + state.skippedLines.length);
 
 /**
  * If output is specified, pass extracted events to output function.
@@ -136,6 +144,7 @@ var outJs = './out/' + program.out + '.js';
 if(fs.lstatSync(outJs)){
     outFunction = require(outJs);
     try {
+        debugParser('passing ' + parsedEvents.length + ' event to ' + outJs);
         outFunction(parsedEvents, debugOut, program.outFileName);
     } catch(e) {
         console.log('Error: ', e);
@@ -150,6 +159,6 @@ if(fs.lstatSync(outJs)){
  */
 if(program.saveUnparsed) {
     var unparsedLinesFile = 'unparsed.txt';
-    debugConfig('Writing ' + unparsedLines.length + ' lines to ' + unparsedLinesFile);
+    debugConfig('Writing ' + state.unparsedLines.length + ' lines to ' + unparsedLinesFile);
     fs.writeFileSync(unparsedLinesFile);
 }
