@@ -3,6 +3,7 @@ var program = require('commander');
 var path = require('path');
 var _ = require('lodash');
 var validator = require('validator');
+var glob = require('glob');
 
 program
   .version('0.0.1')
@@ -26,7 +27,7 @@ function list(val) {
  * Load config.json if exists
  */
 var config = null;
-if(fs.lstatSync('./config.json').isFile()){
+if(fs.existsSync('./config.json') && fs.lstatSync('./config.json').isFile()){
     config = require('./config.json');
 }
 
@@ -37,20 +38,20 @@ if(!program.quiet) {
     process.env.DEBUG='*';
 }
 var debug = require('debug');
-var debugParser = debug('parser')
-var debugParserWarn = debug('parser:warn')
-var debugOut = debug('out')
-var debugConfig = debug('config')
+var debugParser = debug('parser');
+var debugParserWarn = debug('parser:warn');
+var debugOut = debug('out');
+var debugFiles = debug('files');
 
 /*
  * Load input format - a json file with regexes which describe the log format
  */
 var eventTypes = null;
 if(fs.lstatSync(program.inputFormat)){
-    debugConfig('loading log format description from: ' + program.inputFormat);
+    debugFiles('loading log format description from: ' + program.inputFormat);
     eventTypes = require('./' + program.inputFormat);
 } else {
-    debugConfig('No input. Exiting.');
+    debugFiles('No input. Exiting.');
     process.exit();
 }
 
@@ -58,15 +59,32 @@ if(fs.lstatSync(program.inputFormat)){
  * From command line options, see which log file to process
  */
 var inputArg = program.args[0];
-var inputs = [];
+var inputFiles = [];
 if(fs.lstatSync(inputArg).isFile()) {
     debugParser('loading log file: ' + inputArg);
-    inputs = fs.readFileSync(inputArg).toString().split("\n");
+    inputFiles.push(inputArg);
 } else if(fs.lstatSync(inputArg).isDirectory()){
-    // not supported yet
+    debugParser('searching *.log and *.txt files in: ' + inputArg);
+    var globPattern = inputArg + '*.{txt,log}';
+    var inputFiles = glob.sync(globPattern);
+    debugParser('found ' + inputFiles.length + ' log files.');
 }
 
+_.each(inputFiles, function(fileName) {
+
+debugFiles('processing: ' + fileName);
+
 var state = {};
+var inputs = fs.readFileSync('./' + fileName).toString().split("\n");
+
+inputs = _.map(inputs,function(line){
+    return validator.trim(line);
+});
+
+inputs = _.filter(inputs,function(line){
+    return line.length > 0;
+});
+
 state.lineNumber = 0; // for debugging messages
 state.unparsedLines = []; // lines that could not be parsed
 state.skippedLines = []; // filtered with --type
@@ -77,7 +95,6 @@ var parsedEvents = []; // for storing each parsed event
  */
 _.each(inputs, function(line){
     
-    line = validator.trim(line); // remove whitespace from start and end
     if(!line.length) return; // ignore empty lines
     if(program.verbose) { debugParser('processing: ' + line); }
     state.lineNumber++;
@@ -133,7 +150,7 @@ _.each(inputs, function(line){
 /**
  * Show some stats - processed lines, skipped etc
  */
-debugParser('lines in ' + inputArg + ' - excluding blanks: ' + inputs.length);
+debugParser('lines in ' + fileName + ' - excluding blanks: ' + inputs.length);
 debugParser('unparsed: ' + state.unparsedLines.length);
 debugParser('skipped: ' + state.skippedLines.length);
 
@@ -144,13 +161,13 @@ var outJs = './out/' + program.out + '.js';
 if(fs.lstatSync(outJs)){
     outFunction = require(outJs);
     try {
-        debugParser('passing ' + parsedEvents.length + ' event to ' + outJs);
+        debugFiles('passing ' + parsedEvents.length + ' event to ' + outJs);
         outFunction(parsedEvents, debugOut, program);
     } catch(e) {
         console.log('Error: ', e);
     }
 } else {
-    debugConfig('No input. Exiting.');
+    debugFiles('No input. Exiting.');
     process.exit();
 }
 
@@ -159,6 +176,7 @@ if(fs.lstatSync(outJs)){
  */
 if(program.saveUnparsed) {
     var unparsedLinesFile = 'unparsed.txt';
-    debugConfig('Writing ' + state.unparsedLines.length + ' lines to ' + unparsedLinesFile);
+    debugFiles('Writing ' + state.unparsedLines.length + ' lines to ' + unparsedLinesFile);
     fs.writeFileSync(unparsedLinesFile);
 }
+});
