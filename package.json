@@ -12,5 +12,7 @@
   "devDependencies": {
     "mocha": "^1.21.4",
     "chai": "^1.9.1"
-  }
+  },
+  "preferGlobal": "true",
+  "bin": "./index.js"
 }
