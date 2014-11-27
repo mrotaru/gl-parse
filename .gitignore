@@ -1,0 +1,6 @@
+*.txt
+*.json
+*.sql
+*.md
+node_modules/
+*.zip
