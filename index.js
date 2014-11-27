@@ -72,10 +72,11 @@ if(fs.lstatSync(inputArg).isFile()) {
 
 _.each(inputFiles, function(fileName) {
 
+fileName = path.normalize(fileName);
 debugFiles('processing: ' + fileName);
 
 var state = {};
-var inputs = fs.readFileSync('./' + fileName).toString().split("\n");
+var inputs = fs.readFileSync(fileName).toString().split("\n");
 
 inputs = _.map(inputs,function(line){
     return validator.trim(line);
@@ -118,7 +119,7 @@ _.each(inputs, function(line){
                  * If --types are specified, then ignore those.
                  */
                 if(program.types && _.contains(program.types, event.type)){
-                    debugParserWarn('skipping (filtered): ' + line );
+                    if(program.verbose) { debugParserWarn('skipping (filtered): ' + line );}
                     state.skippedLines.push(line);
                     done = true;
                     return false;
@@ -142,7 +143,9 @@ _.each(inputs, function(line){
      * to a file later.
      */
     if(!done) {
-        debugParser('not processed.');
+        if(program.verbose) {
+            debugParserWarn('skipping (no match): ' + line);
+        }
         state.unparsedLines.push(line);
     }
 });
@@ -162,7 +165,10 @@ if(fs.lstatSync(outJs)){
     outFunction = require(outJs);
     try {
         debugFiles('passing ' + parsedEvents.length + ' event to ' + outJs);
-        outFunction(parsedEvents, debugOut, program);
+        outFunction(parsedEvents, debugOut, {
+            cliOptions: program,
+            outFileNameBase: path.basename(fileName)
+        });
     } catch(e) {
         console.log('Error: ', e);
     }

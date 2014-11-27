@@ -31,7 +31,7 @@ function eventTableName(event){
     return capitalize(event.type) + 'Events';
 }
 
-exports = module.exports = function out(parsedEvents, logger, cliOptions) {
+exports = module.exports = function out(parsedEvents, logger, config) {
     var str = '';
 
     _.each(parsedEvents, function(event){
@@ -46,13 +46,13 @@ exports = module.exports = function out(parsedEvents, logger, cliOptions) {
         });
         line = line.replace(/,\s*$/, "");
         line += ' );\n';
-        if(cliOptions.verbose) {
+        if(config.cliOptions.verbose) {
             logger(line.replace(/\n$/,""));
         }
         str += line;
     });
 
-    var fileName = cliOptions.outFileName ? cliOptions.outFileName + '.sql' : 'events.sql';
+    var fileName = config.outFileNameBase ? config.outFileNameBase + '-events.sql' : 'events.sql';
     if(logger && typeof logger === 'function') {
         logger('writing to: ' + fileName);
     }

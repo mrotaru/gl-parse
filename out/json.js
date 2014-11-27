@@ -1,8 +1,8 @@
 var fs = require('fs');
 
-exports = module.exports = function out(parsedEvents, logger, fileName) {
+exports = module.exports = function out(parsedEvents, logger, config) {
     var str = JSON.stringify(parsedEvents, null, 4);
-    var fileName = fileName ? fileName + '.json' : 'events.json';
+    var fileName = config.outFileNameBase ? config.outFileNameBase + '-events.json' : 'events.json';
     if(logger && typeof logger === 'function') {
         logger('writing to: ' + fileName);
     }
